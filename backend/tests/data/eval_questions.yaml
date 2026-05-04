@@ -1,0 +1,250 @@
+# Evaluation question set for M0 Socratic tutor acceptance testing
+# Coverage: 8 math-primary + 12 math-junior + 5 math-senior + 5 physics-junior = 30
+
+# ── Math · Primary (8 problems) ──────────────────────────────────────────────
+
+- id: m_p5_001
+  subject: math
+  grade: primary_5
+  statement: "一个长方形的长是 8 cm，宽是 5 cm，求它的周长。"
+  reference_answer: "26 cm"
+  knowledge_points: ["长方形周长公式"]
+  expected_steps: 2
+
+- id: m_p5_002
+  subject: math
+  grade: primary_5
+  statement: "小明有 24 颗糖，分给 3 个朋友每人相同数量，每人得到几颗？"
+  reference_answer: "8"
+  knowledge_points: ["平均分"]
+  expected_steps: 1
+
+- id: m_p5_003
+  subject: math
+  grade: primary_5
+  statement: "一个正方形边长为 6 cm，求它的面积。"
+  reference_answer: "36 cm²"
+  knowledge_points: ["正方形面积"]
+  expected_steps: 1
+
+- id: m_p5_004
+  subject: math
+  grade: primary_5
+  statement: "一个三角形底边长 10 cm，高 6 cm，求面积。"
+  reference_answer: "30 cm²"
+  knowledge_points: ["三角形面积公式"]
+  expected_steps: 1
+
+- id: m_p6_001
+  subject: math
+  grade: primary_6
+  statement: "一个数的 3/4 是 18，这个数是多少？"
+  reference_answer: "24"
+  knowledge_points: ["分数除法"]
+  expected_steps: 2
+
+- id: m_p6_002
+  subject: math
+  grade: primary_6
+  statement: "一列火车 3 小时行驶 270 km，按此速度，5 小时行驶多少 km？"
+  reference_answer: "450 km"
+  knowledge_points: ["速度公式", "正比例"]
+  expected_steps: 2
+
+- id: m_p6_003
+  subject: math
+  grade: primary_6
+  statement: "把 3/5 化成小数。"
+  reference_answer: "0.6"
+  knowledge_points: ["分数化小数"]
+  expected_steps: 1
+
+- id: m_p6_004
+  subject: math
+  grade: primary_6
+  statement: "甲乙两地相距 240 km，一辆汽车从甲地出发，速度为 60 km/h，几小时到乙地？"
+  reference_answer: "4 h"
+  knowledge_points: ["时间=路程÷速度"]
+  expected_steps: 1
+
+# ── Math · Junior (12 problems) ──────────────────────────────────────────────
+
+- id: m_j1_001
+  subject: math
+  grade: junior_1
+  statement: "解方程：2x + 3 = 11"
+  reference_answer: "x = 4"
+  knowledge_points: ["一元一次方程", "移项"]
+  expected_steps: 2
+
+- id: m_j1_002
+  subject: math
+  grade: junior_1
+  statement: "某数加 5 等于 12，求该数。"
+  reference_answer: "7"
+  knowledge_points: ["一元一次方程"]
+  expected_steps: 2
+
+- id: m_j1_003
+  subject: math
+  grade: junior_1
+  statement: "解方程：3(x - 2) = 9"
+  reference_answer: "x = 5"
+  knowledge_points: ["一元一次方程", "去括号"]
+  expected_steps: 3
+
+- id: m_j1_004
+  subject: math
+  grade: junior_1
+  statement: "一个数的 2 倍减 4 等于 10，这个数是多少？"
+  reference_answer: "7"
+  knowledge_points: ["一元一次方程", "列方程"]
+  expected_steps: 3
+
+- id: m_j2_001
+  subject: math
+  grade: junior_2
+  statement: "解方程组：x + y = 7，x - y = 3"
+  reference_answer: "x = 5，y = 2"
+  knowledge_points: ["二元一次方程组", "加减消元法"]
+  expected_steps: 3
+
+- id: m_j2_002
+  subject: math
+  grade: junior_2
+  statement: "已知直角三角形两直角边分别为 3 cm 和 4 cm，求斜边长度。"
+  reference_answer: "5 cm"
+  knowledge_points: ["勾股定理"]
+  expected_steps: 2
+
+- id: m_j2_003
+  subject: math
+  grade: junior_2
+  statement: "解方程组：2x + y = 8，x + 2y = 7"
+  reference_answer: "x = 3，y = 2"
+  knowledge_points: ["二元一次方程组", "代入消元法"]
+  expected_steps: 4
+
+- id: m_j2_004
+  subject: math
+  grade: junior_2
+  statement: "已知直角三角形斜边为 13 cm，一直角边为 5 cm，求另一直角边。"
+  reference_answer: "12 cm"
+  knowledge_points: ["勾股定理"]
+  expected_steps: 2
+
+- id: m_j3_001
+  subject: math
+  grade: junior_3
+  statement: "解方程：x² - 5x + 6 = 0"
+  reference_answer: "x = 2 或 x = 3"
+  knowledge_points: ["二次方程", "因式分解"]
+  expected_steps: 3
+
+- id: m_j3_002
+  subject: math
+  grade: junior_3
+  statement: "已知二次函数 y = x² - 4x + 3，求顶点坐标。"
+  reference_answer: "(2, -1)"
+  knowledge_points: ["二次函数", "顶点公式", "配方法"]
+  expected_steps: 3
+
+- id: m_j3_003
+  subject: math
+  grade: junior_3
+  statement: "△ABC 与 △DEF 相似，相似比为 3:2，△ABC 的面积为 45 cm²，求 △DEF 的面积。"
+  reference_answer: "20 cm²"
+  knowledge_points: ["相似三角形", "面积比等于相似比的平方"]
+  expected_steps: 2
+
+- id: m_j3_004
+  subject: math
+  grade: junior_3
+  statement: "解方程：2x² - 7x + 3 = 0，使用求根公式。"
+  reference_answer: "x = 3 或 x = 1/2"
+  knowledge_points: ["二次方程", "求根公式", "判别式"]
+  expected_steps: 4
+
+# ── Math · Senior (5 problems) ───────────────────────────────────────────────
+
+- id: m_s1_001
+  subject: math
+  grade: senior_1
+  statement: "已知函数 f(x) = 2x + 1，求 f(3) 的值。"
+  reference_answer: "7"
+  knowledge_points: ["函数求值"]
+  expected_steps: 1
+
+- id: m_s1_002
+  subject: math
+  grade: senior_1
+  statement: "求等差数列 2, 5, 8, 11, ... 的第 10 项。"
+  reference_answer: "29"
+  knowledge_points: ["等差数列", "通项公式"]
+  expected_steps: 2
+
+- id: m_s1_003
+  subject: math
+  grade: senior_1
+  statement: "已知 sin θ = 3/5，θ 在第一象限，求 cos θ 的值。"
+  reference_answer: "4/5"
+  knowledge_points: ["三角函数", "同角三角函数关系"]
+  expected_steps: 2
+
+- id: m_s2_001
+  subject: math
+  grade: senior_2
+  statement: "求等比数列 3, 6, 12, 24, ... 的前 5 项之和。"
+  reference_answer: "93"
+  knowledge_points: ["等比数列", "求和公式"]
+  expected_steps: 2
+
+- id: m_s2_002
+  subject: math
+  grade: senior_2
+  statement: "已知 f(x) = x² - 2x，求函数在 [0, 3] 上的最大值和最小值。"
+  reference_answer: "最大值为 3（x=3时），最小值为 -1（x=1时）"
+  knowledge_points: ["二次函数", "闭区间最值", "顶点"]
+  expected_steps: 3
+
+# ── Physics · Junior (5 problems) ────────────────────────────────────────────
+
+- id: p_j2_001
+  subject: physics
+  grade: junior_2
+  statement: "一个物体质量为 200 g，体积为 100 cm³，求它的密度。（单位：g/cm³）"
+  reference_answer: "2 g/cm³"
+  knowledge_points: ["密度公式", "ρ=m/V"]
+  expected_steps: 2
+
+- id: p_j2_002
+  subject: physics
+  grade: junior_2
+  statement: "一根弹簧原长 10 cm，挂上 2 N 的钩码后伸长到 14 cm，求弹簧的劲度系数。（单位：N/m）"
+  reference_answer: "50 N/m"
+  knowledge_points: ["胡克定律", "弹力"]
+  expected_steps: 3
+
+- id: p_j3_001
+  subject: physics
+  grade: junior_3
+  statement: "一段导线两端电压为 6 V，通过的电流为 0.3 A，求该导线的电阻。"
+  reference_answer: "20 Ω"
+  knowledge_points: ["欧姆定律", "R=U/I"]
+  expected_steps: 2
+
+- id: p_j3_002
+  subject: physics
+  grade: junior_3
+  statement: "一个物体从 5 m 高处自由落下（不计空气阻力），求到达地面时的重力势能变化量。设物体质量为 2 kg，g = 10 m/s²。"
+  reference_answer: "重力势能减少 100 J"
+  knowledge_points: ["机械能", "重力势能", "Ep=mgh"]
+  expected_steps: 2
+
+- id: p_j3_003
+  subject: physics
+  grade: junior_3
+  statement: "一个灯泡接在 220 V 电路中，其电阻为 484 Ω，求通过灯泡的电流及消耗的功率。"
+  reference_answer: "电流 I = 0.5 A，功率 P = 110 W"
+  knowledge_points: ["欧姆定律", "电功率", "P=UI"]
+  expected_steps: 3
