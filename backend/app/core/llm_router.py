@@ -1,4 +1,9 @@
-"""Abstract LLM access for guidance (Claude via 3rd-party gateway) and classify (DeepSeek)."""
+"""Abstract LLM access for guidance and classify roles (both via DeepSeek for now).
+
+Claude gateway config is retained in .env for future use but routing is
+temporarily unified to DeepSeek while the Claude gateway tool-use issue is
+resolved.
+"""
 from __future__ import annotations
 import os
 from typing import Any, Literal
@@ -8,19 +13,15 @@ Role = Literal["guidance", "classify"]
 
 
 class LLMRouter:
-    """Both upstreams expose OpenAI-compatible chat-completions API."""
+    """Both roles use DeepSeek (OpenAI-compatible). Claude gateway config kept for later."""
 
     def __init__(self) -> None:
-        self.claude = AsyncOpenAI(
-            base_url=os.environ["CLAUDE_GATEWAY_BASE_URL"],
-            api_key=os.environ["CLAUDE_GATEWAY_API_KEY"],
-        )
         self.deepseek = AsyncOpenAI(
             base_url=os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
             api_key=os.environ["DEEPSEEK_API_KEY"],
         )
-        self.claude_model = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-5")
-        self.deepseek_model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+        self.guidance_model = os.environ.get("GUIDANCE_MODEL", os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"))
+        self.classify_model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 
     async def chat(
         self,
@@ -31,9 +32,9 @@ class LLMRouter:
         **kwargs: Any,
     ):
         if role == "guidance":
-            client, model = self.claude, self.claude_model
+            model = self.guidance_model
         elif role == "classify":
-            client, model = self.deepseek, self.deepseek_model
+            model = self.classify_model
         else:
             raise ValueError(f"unknown role: {role}")
 
@@ -42,4 +43,4 @@ class LLMRouter:
             params["tools"] = tools
         if tool_choice is not None:
             params["tool_choice"] = tool_choice
-        return await client.chat.completions.create(**params)
+        return await self.deepseek.chat.completions.create(**params)
