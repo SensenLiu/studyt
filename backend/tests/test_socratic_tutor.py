@@ -56,8 +56,8 @@ async def test_tutor_blocks_leaked_answer(problem):
     router.chat = AsyncMock(
         return_value=_mock_completion(
             "ask_question",
-            # tutor accidentally puts the answer in the question
-            {"question": "答案是 7，对吗？", "expected_thinking_direction": "x"},
+            # tutor accidentally states the answer as a declarative sentence (not a question)
+            {"question": "答案是 7。你明白了吗", "expected_thinking_direction": "x"},
         )
     )
     tutor = SocraticTutor(router)

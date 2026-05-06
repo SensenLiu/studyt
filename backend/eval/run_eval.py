@@ -17,6 +17,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from app.core.llm_router import LLMRouter
 from app.core.socratic_tutor import SocraticTutor
