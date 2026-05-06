@@ -72,23 +72,25 @@ async def run_one(
     }
 
 
-async def run_all(*, max_turns: int = 30) -> dict[str, Any]:
+async def run_all(*, max_turns: int = 30, concurrency: int = 5) -> dict[str, Any]:
     raw = yaml.safe_load(DATA_PATH.read_text(encoding="utf-8"))
     problems = [Problem(**item) for item in raw]
     router = LLMRouter()
-    tutor = SocraticTutor(router)
     simulator = StudentSimulator(router, capability="average")
+    sem = asyncio.Semaphore(concurrency)
 
-    results = []
-    for p in problems:
-        try:
-            r = await run_one(
-                tutor=tutor, simulator=simulator, problem=p, max_turns=max_turns
-            )
-        except Exception as exc:  # noqa: BLE001
-            r = {"problem_id": p.id, "error": repr(exc), "completed": False, "leak_detected": False, "turns": 0, "hint_count": 0}
-        print(f"[{p.id}] completed={r['completed']} leak={r['leak_detected']} turns={r.get('turns')}")
-        results.append(r)
+    async def _run_one_safe(p: Problem) -> dict[str, Any]:
+        async with sem:
+            # Each problem needs its own tutor instance to isolate session state
+            tutor = SocraticTutor(router)
+            try:
+                r = await run_one(tutor=tutor, simulator=simulator, problem=p, max_turns=max_turns)
+            except Exception as exc:  # noqa: BLE001
+                r = {"problem_id": p.id, "error": repr(exc), "completed": False, "leak_detected": False, "turns": 0, "hint_count": 0}
+            print(f"[{p.id}] completed={r['completed']} leak={r['leak_detected']} turns={r.get('turns')}")
+            return r
+
+    results = list(await asyncio.gather(*[_run_one_safe(p) for p in problems]))
 
     completed = sum(1 for r in results if r.get("completed"))
     leaks = sum(1 for r in results if r.get("leak_detected"))
