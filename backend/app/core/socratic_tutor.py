@@ -118,8 +118,8 @@ class SocraticTutor:
     def _guard_against_leak(
         action: TutorAction, reference_answer: str, session: SessionState
     ) -> TutorAction:
-        # summarize_at_end legitimately mentions the answer in a wrap-up; skip guard
-        if action.name == "summarize_at_end":
+        # These tools legitimately echo the answer the student already produced; skip guard
+        if action.name in ("summarize_at_end", "acknowledge_correct_step"):
             return action
         # Internal reasoning fields not visible to students; skip
         _INTERNAL_FIELDS = {"expected_thinking_direction", "why_student_is_off"}
