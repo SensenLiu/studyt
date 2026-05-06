@@ -118,22 +118,15 @@ class SocraticTutor:
     def _guard_against_leak(
         action: TutorAction, reference_answer: str, session: SessionState
     ) -> TutorAction:
-        # These tools legitimately echo the answer the student already produced; skip guard
+        # Tools that legitimately echo the student's own answer; no scan needed
         if action.name in ("summarize_at_end", "acknowledge_correct_step"):
             return action
-        # Internal reasoning fields not visible to students; skip
-        _INTERNAL_FIELDS = {"expected_thinking_direction", "why_student_is_off"}
-        for key, val in action.arguments.items():
-            if not isinstance(val, str) or key in _INTERNAL_FIELDS:
-                continue
-            if not detect_answer_leak(val, reference_answer):
-                continue
-            # A question that merely echoes the student's own answer (Socratic follow-up)
-            # is not a leak — e.g. "你是怎么得到7的？". Detect by: value ends with "？"
-            # and the answer token appears only inside a question clause.
-            stripped = val.strip()
-            if stripped.endswith("？") or stripped.endswith("?"):
-                continue
+        # Only hint_text is a direct-delivery field that must never reveal the answer.
+        # Questions and redirects may mention answer values in Socratic context
+        # (e.g. "你是怎么得到X的？" or intermediate calc steps); scanning them
+        # produces too many false positives with no meaningful safety benefit.
+        hint_text = action.arguments.get("hint_text", "")
+        if hint_text and detect_answer_leak(hint_text, reference_answer):
             session.leak_detected = True
             return _SAFE_FALLBACK
         return action

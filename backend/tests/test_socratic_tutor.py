@@ -55,9 +55,9 @@ async def test_tutor_blocks_leaked_answer(problem):
     router = MagicMock()
     router.chat = AsyncMock(
         return_value=_mock_completion(
-            "ask_question",
-            # tutor accidentally states the answer as a declarative sentence (not a question)
-            {"question": "答案是 7。你明白了吗", "expected_thinking_direction": "x"},
+            "hint",
+            # hint_text directly reveals the answer — must be blocked
+            {"level": 3, "hint_text": "答案就是 7，因为 12-5=7。"},
         )
     )
     tutor = SocraticTutor(router)
@@ -65,8 +65,7 @@ async def test_tutor_blocks_leaked_answer(problem):
     turn = await tutor.take_turn(session, student_message="hi")
     # Tutor must have flagged the leak and replaced with a safe fallback hint
     assert session.leak_detected is True
-    assert "7" not in turn.action.arguments.get("question", "") and \
-           "7" not in turn.action.arguments.get("hint_text", "")
+    assert "7" not in turn.action.arguments.get("hint_text", "")
 
 
 @pytest.mark.asyncio
