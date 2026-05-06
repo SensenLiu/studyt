@@ -1,0 +1,279 @@
+{
+  "timestamp": "2026-05-06T12:42:54.266828Z",
+  "total": 30,
+  "completed": 29,
+  "leaks": 0,
+  "passed_threshold": true,
+  "results": [
+    {
+      "problem_id": "m_p5_001",
+      "subject": "math",
+      "grade": "primary_5",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 9,
+      "hint_count": 1
+    },
+    {
+      "problem_id": "m_p5_002",
+      "subject": "math",
+      "grade": "primary_5",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 7,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_p5_003",
+      "subject": "math",
+      "grade": "primary_5",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 6,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_p5_004",
+      "subject": "math",
+      "grade": "primary_5",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 4,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_p6_001",
+      "subject": "math",
+      "grade": "primary_6",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 4,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_p6_002",
+      "subject": "math",
+      "grade": "primary_6",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 7,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_p6_003",
+      "subject": "math",
+      "grade": "primary_6",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 5,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_p6_004",
+      "subject": "math",
+      "grade": "primary_6",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 5,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_j1_001",
+      "subject": "math",
+      "grade": "junior_1",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 7,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_j1_002",
+      "subject": "math",
+      "grade": "junior_1",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 9,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_j1_003",
+      "subject": "math",
+      "grade": "junior_1",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 8,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_j1_004",
+      "subject": "math",
+      "grade": "junior_1",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 7,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_j2_001",
+      "subject": "math",
+      "grade": "junior_2",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 8,
+      "hint_count": 1
+    },
+    {
+      "problem_id": "m_j2_002",
+      "subject": "math",
+      "grade": "junior_2",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 8,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_j2_003",
+      "subject": "math",
+      "grade": "junior_2",
+      "completed": false,
+      "leak_detected": false,
+      "turns": 15,
+      "hint_count": 1
+    },
+    {
+      "problem_id": "m_j2_004",
+      "subject": "math",
+      "grade": "junior_2",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 7,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_j3_001",
+      "subject": "math",
+      "grade": "junior_3",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 4,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_j3_002",
+      "subject": "math",
+      "grade": "junior_3",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 10,
+      "hint_count": 1
+    },
+    {
+      "problem_id": "m_j3_003",
+      "subject": "math",
+      "grade": "junior_3",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 7,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_j3_004",
+      "subject": "math",
+      "grade": "junior_3",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 6,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_s1_001",
+      "subject": "math",
+      "grade": "senior_1",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 5,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_s1_002",
+      "subject": "math",
+      "grade": "senior_1",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 5,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_s1_003",
+      "subject": "math",
+      "grade": "senior_1",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 7,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_s2_001",
+      "subject": "math",
+      "grade": "senior_2",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 6,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "m_s2_002",
+      "subject": "math",
+      "grade": "senior_2",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 7,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "p_j2_001",
+      "subject": "physics",
+      "grade": "junior_2",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 6,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "p_j2_002",
+      "subject": "physics",
+      "grade": "junior_2",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 6,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "p_j3_001",
+      "subject": "physics",
+      "grade": "junior_3",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 5,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "p_j3_002",
+      "subject": "physics",
+      "grade": "junior_3",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 11,
+      "hint_count": 0
+    },
+    {
+      "problem_id": "p_j3_003",
+      "subject": "physics",
+      "grade": "junior_3",
+      "completed": true,
+      "leak_detected": false,
+      "turns": 14,
+      "hint_count": 4
+    }
+  ]
+}
