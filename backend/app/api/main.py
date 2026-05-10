@@ -81,9 +81,17 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
       <option value="senior_3">高中三年级</option>
     </select>
     <label>题目</label>
-    <textarea id="statement" placeholder="在这里输入题目，例如：某数加 5 等于 12，求该数。"></textarea>
+    <div style="position:relative">
+      <textarea id="statement" placeholder="在这里输入题目，或点右侧📷拍题自动识别" style="padding-right:44px"></textarea>
+      <label id="ocr-btn" title="拍照识别题目"
+        style="position:absolute;right:8px;top:8px;font-size:22px;cursor:pointer;line-height:1">
+        📷<input type="file" id="ocr-input" accept="image/*" capture="environment"
+          style="display:none" onchange="handleOcrImage(this)">
+      </label>
+    </div>
+    <div id="ocr-status" style="font-size:12px;color:#888;margin-top:4px;display:none"></div>
     <label>参考答案（AI 内部使用，不会直接告诉你）</label>
-    <input id="answer" type="text" placeholder="例如：7">
+    <input id="answer" type="text" placeholder="例如：7（拍题后自动填入）">
     <button id="start-btn" onclick="startSession()">开始答题</button>
   </div>
   <!-- 对话区 -->
@@ -126,6 +134,35 @@ function setStatus(msg){
   const s=document.getElementById('status');
   s.style.display=msg?'block':'none';
   s.textContent=msg;
+}
+
+async function handleOcrImage(input){
+  const file = input.files[0];
+  if(!file) return;
+  const ocrStatus = document.getElementById('ocr-status');
+  ocrStatus.style.display='block';
+  ocrStatus.textContent='📷 识别中，请稍候…';
+  document.getElementById('start-btn').disabled=true;
+  const fd = new FormData();
+  fd.append('file', file);
+  try{
+    const res = await fetch('/api/ocr', {method:'POST', body:fd});
+    if(!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    document.getElementById('statement').value = data.statement;
+    autoResize(document.getElementById('statement'));
+    if(data.reference_answer && data.reference_answer !== '未提供'){
+      document.getElementById('answer').value = data.reference_answer;
+    }
+    ocrStatus.textContent = '✅ 识别完成，请确认题目和答案是否正确';
+    ocrStatus.style.color = '#16a34a';
+  }catch(e){
+    ocrStatus.textContent = '❌ 识别失败：' + e.message;
+    ocrStatus.style.color = '#dc2626';
+  }finally{
+    document.getElementById('start-btn').disabled=false;
+    input.value='';
+  }
 }
 
 async function startSession(){

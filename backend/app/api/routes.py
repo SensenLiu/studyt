@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app.core.asr import transcribe
+from app.core.ocr import image_to_problem
 from app.core.llm_router import LLMRouter
 from app.core.socratic_tutor import SocraticTutor
 from app.models.schemas import (
@@ -93,6 +94,27 @@ async def start_session(req: StartRequest) -> Any:
 
 class AsrResponse(BaseModel):
     text: str
+
+
+class OcrResponse(BaseModel):
+    statement: str
+    reference_answer: str
+    raw_ocr: str
+
+
+@router.post("/api/ocr", response_model=OcrResponse)
+async def ocr_image(file: UploadFile = File(...)) -> Any:
+    """Receive an image file, OCR it, return extracted problem + answer."""
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Empty image file")
+    try:
+        result = await image_to_problem(image_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+    return OcrResponse(**result)
 
 
 @router.post("/api/asr", response_model=AsrResponse)

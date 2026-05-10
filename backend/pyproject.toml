@@ -14,6 +14,8 @@ dependencies = [
     "python-multipart>=0.0.9",
     "aliyun-python-sdk-nls-cloud-meta>=1.0.0",
     "aliyun-python-sdk-core>=2.13.0",
+    "alibabacloud-ocr-api20210707>=3.1.0",
+    "alibabacloud-tea-util>=0.3.0",
 ]
 
 [project.optional-dependencies]
