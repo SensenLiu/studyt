@@ -3,9 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from app.core.asr import transcribe
 from app.core.llm_router import LLMRouter
 from app.core.socratic_tutor import SocraticTutor
 from app.models.schemas import (
@@ -88,6 +89,23 @@ async def start_session(req: StartRequest) -> Any:
             leak_detected=session.leak_detected,
         ),
     )
+
+
+class AsrResponse(BaseModel):
+    text: str
+
+
+@router.post("/api/asr", response_model=AsrResponse)
+async def asr(file: UploadFile = File(...)) -> Any:
+    """Receive an audio file, return transcribed text via Aliyun NLS."""
+    audio_bytes = await file.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio file")
+    try:
+        text = await transcribe(audio_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ASR failed: {e}")
+    return AsrResponse(text=text)
 
 
 @router.post("/api/session/turn", response_model=TurnResponse)

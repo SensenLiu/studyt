@@ -11,6 +11,9 @@ dependencies = [
     "httpx>=0.27",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
+    "aliyun-python-sdk-nls-cloud-meta>=1.0.0",
+    "aliyun-python-sdk-core>=2.13.0",
 ]
 
 [project.optional-dependencies]

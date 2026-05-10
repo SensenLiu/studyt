@@ -48,6 +48,10 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
            flex-direction:row;gap:8px;align-items:flex-end}
 #msg{flex:1;padding:9px 12px;border:1px solid #ccc;border-radius:20px;
      font-size:15px;font-family:inherit;resize:none;max-height:120px;overflow-y:auto}
+#mic-btn{padding:9px 12px;background:#f3f4f6;border:1px solid #ccc;border-radius:20px;
+         font-size:18px;cursor:pointer;flex-shrink:0;transition:background 0.2s}
+#mic-btn.recording{background:#fee2e2;border-color:#f87171;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
 #send-btn{padding:9px 16px;background:#4f46e5;color:#fff;border:none;
           border-radius:20px;font-size:15px;cursor:pointer;white-space:nowrap}
 #send-btn:disabled{background:#a5b4fc}
@@ -89,11 +93,14 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
   <div id="input-bar">
     <textarea id="msg" placeholder="输入你的想法…" rows="1"
       oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+    <button id="mic-btn" onclick="toggleRecording()" title="按住说话">🎤</button>
     <button id="send-btn" onclick="sendTurn()">发送</button>
   </div>
 </div>
 <script>
 let sessionId = null;
+let mediaRecorder = null;
+let audioChunks = [];
 
 function autoResize(el){
   el.style.height='auto';
@@ -187,7 +194,59 @@ async function sendTurn(){
 function finishSession(){
   document.getElementById('msg').disabled=true;
   document.getElementById('send-btn').disabled=true;
+  document.getElementById('mic-btn').disabled=true;
   setStatus('✅ 这道题完成了！刷新页面可以换一道题。');
+}
+
+async function toggleRecording(){
+  const btn=document.getElementById('mic-btn');
+  if(mediaRecorder && mediaRecorder.state==='recording'){
+    mediaRecorder.stop();
+    return;
+  }
+  // start recording
+  let stream;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(e){
+    setStatus('无法访问麦克风：'+e.message);
+    return;
+  }
+  // prefer ogg-opus (aliyun NLS native); fallback to webm-opus
+  const mimeType = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+    ? 'audio/ogg;codecs=opus'
+    : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus' : 'audio/webm';
+  audioChunks=[];
+  mediaRecorder=new MediaRecorder(stream,{mimeType});
+  mediaRecorder.ondataavailable=e=>{ if(e.data.size>0) audioChunks.push(e.data); };
+  mediaRecorder.onstop=async()=>{
+    btn.classList.remove('recording');
+    btn.textContent='🎤';
+    stream.getTracks().forEach(t=>t.stop());
+    setStatus('识别中…');
+    const blob=new Blob(audioChunks,{type:mimeType});
+    const fd=new FormData();
+    fd.append('file', blob, 'audio.webm');
+    try{
+      const res=await fetch('/api/asr',{method:'POST',body:fd});
+      if(!res.ok) throw new Error(await res.text());
+      const data=await res.json();
+      setStatus('');
+      if(data.text){
+        document.getElementById('msg').value=data.text;
+        autoResize(document.getElementById('msg'));
+      } else {
+        setStatus('未能识别到内容，请重试');
+      }
+    }catch(e){
+      setStatus('识别失败：'+e.message);
+    }
+  };
+  mediaRecorder.start();
+  btn.classList.add('recording');
+  btn.textContent='⏹';
+  setStatus('录音中… 说完后点击停止');
 }
 </script>
 </body>
