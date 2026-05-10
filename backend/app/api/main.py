@@ -80,19 +80,26 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
       <option value="senior_2">高中二年级</option>
       <option value="senior_3">高中三年级</option>
     </select>
-    <label>题目</label>
-    <div style="position:relative">
-      <textarea id="statement" placeholder="在这里输入题目，或点右侧📷拍题自动识别" style="padding-right:44px"></textarea>
-      <label id="ocr-btn" title="拍照识别题目"
-        style="position:absolute;right:8px;top:8px;font-size:22px;cursor:pointer;line-height:1">
-        📷<input type="file" id="ocr-input" accept="image/*" capture="environment"
+    <!-- 出题方式 -->
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="pickRandom()" id="random-btn"
+        style="flex:1;padding:9px;background:#f3f4f6;border:1px solid #ccc;
+               border-radius:8px;font-size:14px;cursor:pointer">
+        🎲 随机出题
+      </button>
+      <label style="flex:1;padding:9px;background:#f3f4f6;border:1px solid #ccc;
+                    border-radius:8px;font-size:14px;cursor:pointer;text-align:center">
+        📷 拍题识别
+        <input type="file" id="ocr-input" accept="image/*" capture="environment"
           style="display:none" onchange="handleOcrImage(this)">
       </label>
     </div>
-    <div id="ocr-status" style="font-size:12px;color:#888;margin-top:4px;display:none"></div>
+    <div id="ocr-status" style="font-size:12px;margin-top:6px;display:none"></div>
+    <label style="margin-top:10px">题目</label>
+    <textarea id="statement" placeholder="随机出题或拍照后自动填入，也可手动输入" rows="3"></textarea>
     <label>参考答案（AI 内部使用，不会直接告诉你）</label>
-    <input id="answer" type="text" placeholder="例如：7（拍题后自动填入）">
-    <button id="start-btn" onclick="startSession()">开始答题</button>
+    <input id="answer" type="text" placeholder="拍题后自动填入，或手动输入">
+    <button id="start-btn" onclick="startSession()" style="margin-top:14px">开始答题</button>
   </div>
   <!-- 对话区 -->
   <div id="chat"></div>
@@ -134,6 +141,36 @@ function setStatus(msg){
   const s=document.getElementById('status');
   s.style.display=msg?'block':'none';
   s.textContent=msg;
+}
+
+async function pickRandom(){
+  const subject = document.getElementById('subject').value;
+  const grade = document.getElementById('grade').value;
+  const btn = document.getElementById('random-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 出题中…';
+  const ocrStatus = document.getElementById('ocr-status');
+  ocrStatus.style.display = 'none';
+  try{
+    const res = await fetch(`/api/questions/random?subject=${subject}&grade=${grade}`);
+    if(!res.ok){
+      const err = await res.json();
+      throw new Error(err.detail || '无题目');
+    }
+    const q = await res.json();
+    document.getElementById('statement').value = q.statement;
+    document.getElementById('answer').value = q.reference_answer;
+    ocrStatus.style.display = 'block';
+    ocrStatus.style.color = '#16a34a';
+    ocrStatus.textContent = `✅ 已出题（${q.knowledge_points.join('、')}）`;
+  }catch(e){
+    ocrStatus.style.display = 'block';
+    ocrStatus.style.color = '#dc2626';
+    ocrStatus.textContent = '❌ ' + e.message;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '🎲 随机出题';
+  }
 }
 
 async function handleOcrImage(input){

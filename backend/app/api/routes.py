@@ -1,8 +1,11 @@
 """Session API routes: start a tutoring session and exchange turns."""
 from __future__ import annotations
+import random
 import uuid
+from pathlib import Path
 from typing import Any
 
+import yaml
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
@@ -18,6 +21,10 @@ router = APIRouter()
 
 # In-memory session store: session_id → (tutor, session, problem)
 _sessions: dict[str, tuple[SocraticTutor, SessionState, Problem]] = {}
+
+# Question bank loaded once at startup
+_QBANK_PATH = Path(__file__).resolve().parents[2] / "tests" / "data" / "eval_questions.yaml"
+_QBANK: list[dict] = yaml.safe_load(_QBANK_PATH.read_text(encoding="utf-8"))
 
 
 def _action_to_display(action: TutorAction) -> str:
@@ -63,6 +70,32 @@ class StartResponse(BaseModel):
 class TurnRequest(BaseModel):
     session_id: str
     message: str
+
+
+class QuestionItem(BaseModel):
+    id: str
+    subject: str
+    grade: str
+    statement: str
+    reference_answer: str
+    knowledge_points: list[str]
+
+
+@router.get("/api/questions/random", response_model=QuestionItem)
+async def random_question(
+    subject: str | None = None,
+    grade: str | None = None,
+) -> Any:
+    """Return a random question filtered by subject and/or grade."""
+    pool = _QBANK
+    if subject:
+        pool = [q for q in pool if q["subject"] == subject]
+    if grade:
+        pool = [q for q in pool if q["grade"] == grade]
+    if not pool:
+        raise HTTPException(status_code=404, detail="没有符合条件的题目")
+    q = random.choice(pool)
+    return QuestionItem(**{k: q[k] for k in QuestionItem.model_fields if k in q})
 
 
 @router.post("/api/session/start", response_model=StartResponse)
