@@ -11,6 +11,9 @@ from pydantic import BaseModel
 
 from app.core.asr import transcribe
 from app.core.ocr import image_to_problem
+from app.core.mistake_book import (
+    add_mistake, list_mistakes, mark_reviewed, delete_mistake, due_count
+)
 from app.core.llm_router import LLMRouter
 from app.core.socratic_tutor import SocraticTutor
 from app.models.schemas import (
@@ -172,9 +175,116 @@ async def take_turn(req: TurnRequest) -> Any:
     if session.completed:
         raise HTTPException(status_code=400, detail="Session already completed")
     turn = await tutor.take_turn(session, student_message=req.message)
+    # Auto-add to mistake book if session ends with too many hints (struggling)
+    if session.completed and session.hint_count >= 3:
+        add_mistake(
+            subject=problem.subject,
+            grade=problem.grade,
+            statement=problem.statement,
+            answer=problem.reference_answer,
+            source="session",
+            note=f"用了 {session.hint_count} 次提示",
+        )
     return TurnResponse(
         tool=turn.action.name,
         display_text=_action_to_display(turn.action),
         completed=session.completed,
         leak_detected=session.leak_detected,
     )
+
+
+# ── Mistake book endpoints ──────────────────────────────────────────────────
+
+class MistakeIn(BaseModel):
+    subject: str
+    grade: str
+    statement: str
+    answer: str
+    source: str = "manual"
+    note: str = ""
+
+
+class MistakeOut(BaseModel):
+    id: int
+    subject: str
+    grade: str
+    statement: str
+    answer: str
+    source: str
+    added_date: str
+    next_review: str
+    review_count: int
+    note: str
+
+
+class DueCountOut(BaseModel):
+    due: int
+
+
+@router.get("/api/mistakes", response_model=list[MistakeOut])
+async def get_mistakes(due_only: bool = False) -> Any:
+    return list_mistakes(due_only=due_only)
+
+
+@router.get("/api/mistakes/due-count", response_model=DueCountOut)
+async def get_due_count() -> Any:
+    return DueCountOut(due=due_count())
+
+
+@router.post("/api/mistakes", response_model=MistakeOut)
+async def create_mistake(m: MistakeIn) -> Any:
+    mid = add_mistake(m.subject, m.grade, m.statement, m.answer, m.source, m.note)
+    return list_mistakes()[0] if mid else {}
+
+
+@router.post("/api/mistakes/from-session/add-from-session")
+async def add_from_session(session_id: str) -> Any:
+    """Manually add the current session's problem to mistake book."""
+    entry = _sessions.get(session_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    _, session, problem = entry
+    mid = add_mistake(
+        subject=problem.subject,
+        grade=problem.grade,
+        statement=problem.statement,
+        answer=problem.reference_answer,
+        source="manual",
+    )
+    return {"id": mid, "message": "已加入错题集"}
+
+
+@router.post("/api/mistakes/from-photo", response_model=MistakeOut)
+async def mistake_from_photo(
+    grade: str,
+    file: UploadFile = File(...),
+) -> Any:
+    """OCR a photo and add it directly to mistake book."""
+    image_bytes = await file.read()
+    try:
+        result = await image_to_problem(image_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+    mid = add_mistake(
+        subject="math",
+        grade=grade,
+        statement=result["statement"],
+        answer=result["reference_answer"],
+        source="photo",
+    )
+    rows = list_mistakes()
+    return next(r for r in rows if r["id"] == mid)
+
+
+@router.put("/api/mistakes/{mistake_id}/reviewed", response_model=MistakeOut)
+async def reviewed(mistake_id: int) -> Any:
+    try:
+        return mark_reviewed(mistake_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/api/mistakes/{mistake_id}")
+async def remove_mistake(mistake_id: int) -> Any:
+    delete_mistake(mistake_id)
+    return {"message": "已删除"}
