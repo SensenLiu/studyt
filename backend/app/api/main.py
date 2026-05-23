@@ -174,7 +174,7 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
   <!-- ══ 底部导航 ══ -->
   <div id="nav">
     <button class="nav-btn active" onclick="showPage('practice', this)">
-      <span class="icon">✏️</span>答题
+      <span class="icon">✏️</span>出题
     </button>
     <button class="nav-btn" onclick="showPage('mistakes', this)" id="nav-mistakes">
       <span class="icon">📒</span>错题集
@@ -340,7 +340,7 @@ function finishSession(){
   document.getElementById('msg').disabled=true;
   document.getElementById('send-btn').disabled=true;
   document.getElementById('mic-btn').disabled=true;
-  setStatus('✅ 这道题完成了！点下方「答题」可换一道题。');
+  setStatus('✅ 这道题完成了！点下方「出题」可换一道题。');
 }
 
 // ── 页面切换 ──
