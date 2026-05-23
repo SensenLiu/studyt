@@ -132,8 +132,6 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
       <div id="ocr-status" style="font-size:12px;margin-top:6px;display:none"></div>
       <label style="margin-top:10px">题目</label>
       <textarea id="statement" placeholder="随机出题或拍照后自动填入，也可手动输入" rows="3"></textarea>
-      <label>参考答案（AI 内部使用，不会直接告诉你）</label>
-      <input id="answer" type="text" placeholder="拍题后自动填入，或手动输入">
       <button id="start-btn" onclick="startSession()" style="margin-top:14px">开始答题</button>
     </div>
     <!-- 对话区 -->
@@ -230,7 +228,7 @@ async function pickRandom(){
     }
     const q = await res.json();
     document.getElementById('statement').value = q.statement;
-    document.getElementById('answer').value = q.reference_answer;
+    autoResize(document.getElementById('statement'));
     ocrStatus.style.display = 'block';
     ocrStatus.style.color = '#16a34a';
     ocrStatus.textContent = `✅ 已出题（${q.knowledge_points.join('、')}）`;
@@ -254,16 +252,17 @@ async function handleOcrImage(input){
   const fd = new FormData();
   fd.append('file', file);
   try{
-    const res = await fetch('/api/ocr', {method:'POST', body:fd});
+    const subject = document.getElementById('subject').value;
+    const grade = document.getElementById('grade').value;
+    const res = await fetch(`/api/ocr?subject=${subject}&grade=${grade}`, {method:'POST', body:fd});
     if(!res.ok) throw new Error(await res.text());
     const data = await res.json();
     document.getElementById('statement').value = data.statement;
     autoResize(document.getElementById('statement'));
-    if(data.reference_answer && data.reference_answer !== '未提供'){
-      document.getElementById('answer').value = data.reference_answer;
-    }
-    ocrStatus.textContent = '✅ 识别完成，请确认题目和答案是否正确';
-    ocrStatus.style.color = '#16a34a';
+    ocrStatus.style.color = data.needs_confirmation ? '#d97706' : '#16a34a';
+    ocrStatus.textContent = data.needs_confirmation
+      ? '⚠️ 识别结果还需确认，请先检查或修改题目再开始答题'
+      : '✅ 识别完成，请确认题目后开始答题';
   }catch(e){
     ocrStatus.textContent = '❌ 识别失败：' + e.message;
     ocrStatus.style.color = '#dc2626';
@@ -277,8 +276,7 @@ async function startSession(){
   const subject=document.getElementById('subject').value;
   const grade=document.getElementById('grade').value;
   const statement=document.getElementById('statement').value.trim();
-  const answer=document.getElementById('answer').value.trim();
-  if(!statement||!answer){alert('请填写题目和参考答案');return;}
+  if(!statement){alert('请填写题目');return;}
 
   document.getElementById('start-btn').disabled=true;
   setStatus('AI 老师正在准备第一个问题…');
@@ -286,7 +284,7 @@ async function startSession(){
     const res=await fetch('/api/session/start',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({subject,grade,statement,reference_answer:answer,knowledge_points:[]})
+      body:JSON.stringify({subject,grade,statement,knowledge_points:[]})
     });
     if(!res.ok) throw new Error(await res.text());
     const data=await res.json();
@@ -413,7 +411,7 @@ function practiceFromMistake(id){
     document.getElementById('subject').value = m.subject;
     document.getElementById('grade').value = m.grade;
     document.getElementById('statement').value = m.statement;
-    document.getElementById('answer').value = m.answer;
+    autoResize(document.getElementById('statement'));
     // reset chat
     sessionId=null;
     document.getElementById('chat').innerHTML='';
@@ -438,13 +436,14 @@ async function addCurrentToMistakes(){
 async function addMistakeFromPhoto(input){
   const file = input.files[0];
   if(!file) return;
+  const subject = document.getElementById('subject')?.value || 'math';
   const grade = document.getElementById('grade')?.value || 'junior_1';
   const list = document.getElementById('mistakes-list');
   list.innerHTML='<div style="padding:16px;text-align:center;color:#888">📷 识别中…</div>';
   const fd = new FormData();
   fd.append('file', file);
   try{
-    const res = await fetch('/api/mistakes/from-photo?grade='+grade, {method:'POST', body:fd});
+    const res = await fetch(`/api/mistakes/from-photo?subject=${subject}&grade=${grade}`, {method:'POST', body:fd});
     if(!res.ok) throw new Error(await res.text());
     await loadMistakes(false, null);
     updateDueBadge();

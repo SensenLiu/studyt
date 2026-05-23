@@ -10,7 +10,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app.core.asr import transcribe
-from app.core.ocr import image_to_problem
+from app.core.ocr import image_to_problem, solve_problem
 from app.core.mistake_book import (
     add_mistake, list_mistakes, mark_reviewed, delete_mistake, due_count
 )
@@ -54,7 +54,7 @@ class StartRequest(BaseModel):
     subject: Subject
     grade: Grade
     statement: str
-    reference_answer: str
+    reference_answer: str = ""
     knowledge_points: list[str] = []
 
 
@@ -80,7 +80,6 @@ class QuestionItem(BaseModel):
     subject: str
     grade: str
     statement: str
-    reference_answer: str
     knowledge_points: list[str]
 
 
@@ -103,12 +102,19 @@ async def random_question(
 
 @router.post("/api/session/start", response_model=StartResponse)
 async def start_session(req: StartRequest) -> Any:
+    reference_answer = req.reference_answer.strip()
+    if not reference_answer:
+        solved = await solve_problem(req.statement, req.subject, req.grade)
+        if solved.get("needs_confirmation") or not solved.get("reference_answer"):
+            raise HTTPException(status_code=422, detail="题目识别或求解结果还不够确定，请先确认题目内容")
+        reference_answer = str(solved["reference_answer"]).strip()
+
     problem = Problem(
         id=str(uuid.uuid4()),
         subject=req.subject,
         grade=req.grade,
         statement=req.statement,
-        reference_answer=req.reference_answer,
+        reference_answer=reference_answer,
         knowledge_points=req.knowledge_points,
     )
     router_llm = LLMRouter()
@@ -134,23 +140,31 @@ class AsrResponse(BaseModel):
 
 class OcrResponse(BaseModel):
     statement: str
-    reference_answer: str
     raw_ocr: str
+    needs_confirmation: bool
 
 
 @router.post("/api/ocr", response_model=OcrResponse)
-async def ocr_image(file: UploadFile = File(...)) -> Any:
-    """Receive an image file, OCR it, return extracted problem + answer."""
+async def ocr_image(
+    subject: Subject = "math",
+    grade: Grade = "junior_1",
+    file: UploadFile = File(...),
+) -> Any:
+    """Receive an image file, OCR it, return extracted problem without exposing the answer."""
     image_bytes = await file.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Empty image file")
     try:
-        result = await image_to_problem(image_bytes)
+        result = await image_to_problem(image_bytes, subject=subject, grade=grade)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
-    return OcrResponse(**result)
+    return OcrResponse(
+        statement=result["statement"],
+        raw_ocr=result["raw_ocr"],
+        needs_confirmation=bool(result.get("needs_confirmation", False)),
+    )
 
 
 @router.post("/api/asr", response_model=AsrResponse)
@@ -256,17 +270,20 @@ async def add_from_session(session_id: str) -> Any:
 
 @router.post("/api/mistakes/from-photo", response_model=MistakeOut)
 async def mistake_from_photo(
+    subject: str,
     grade: str,
     file: UploadFile = File(...),
 ) -> Any:
     """OCR a photo and add it directly to mistake book."""
     image_bytes = await file.read()
     try:
-        result = await image_to_problem(image_bytes)
+        result = await image_to_problem(image_bytes, subject=subject, grade=grade)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+    if result.get("needs_confirmation") or not result.get("reference_answer"):
+        raise HTTPException(status_code=422, detail="题目识别或求解结果还不够确定，请先确认题目内容")
     mid = add_mistake(
-        subject="math",
+        subject=subject,
         grade=grade,
         statement=result["statement"],
         answer=result["reference_answer"],

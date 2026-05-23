@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+from typing import Any
 
 from alibabacloud_ocr_api20210707.client import Client
 from alibabacloud_ocr_api20210707 import models as ocr_models
@@ -36,15 +37,62 @@ def _extract_text(body) -> str:
     return data.get("content", "")
 
 
-async def image_to_problem(image_bytes: bytes) -> dict[str, str]:
+def _deepseek_client() -> AsyncOpenAI:
+    return AsyncOpenAI(
+        base_url=os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
+        api_key=os.environ["DEEPSEEK_API_KEY"],
+    )
+
+
+async def _chat_json(prompt: str, *, max_tokens: int = 500) -> dict[str, Any]:
+    ds = _deepseek_client()
+    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+    completion = await ds.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=0,
+    )
+    content = completion.choices[0].message.content.strip()
+    if content.startswith("```"):
+        content = content.split("```")[1]
+        if content.startswith("json"):
+            content = content[4:]
+    return json.loads(content.strip())
+
+
+async def solve_problem(statement: str, subject: str, grade: str) -> dict[str, Any]:
+    prompt = f"""你是一名中国 K-12 {subject} 老师。下面是一道 {grade} 题目：
+
+{statement}
+
+请先自行求解，再只返回 JSON，不要解释：
+{{"reference_answer": "最终答案", "needs_confirmation": false}}
+
+如果题目信息不完整、歧义明显、无法可靠求解，则返回：
+{{"reference_answer": "", "needs_confirmation": true}}"""
+    result = await _chat_json(prompt)
+    return {
+        "reference_answer": str(result.get("reference_answer", "")).strip(),
+        "needs_confirmation": bool(result.get("needs_confirmation", False)),
+    }
+
+
+async def image_to_problem(
+    image_bytes: bytes,
+    *,
+    subject: str = "math",
+    grade: str = "junior_1",
+) -> dict[str, Any]:
     """
     Given raw image bytes:
     1. Run Aliyun OCR to extract text
     2. Ask DeepSeek to parse out statement + reference_answer
-    Returns {"statement": ..., "reference_answer": ..., "raw_ocr": ...}
+    3. If no answer is present, ask DeepSeek to solve it internally
+    Returns internal data including answer and confirmation state.
     """
-    # Step 1: OCR via stream upload
     import asyncio
+
     client = _ocr_client()
     req = ocr_models.RecognizeGeneralRequest()
     req.body = io.BytesIO(image_bytes)
@@ -57,38 +105,33 @@ async def image_to_problem(image_bytes: bytes) -> dict[str, str]:
     if not raw_text.strip():
         raise ValueError("OCR 未能识别到文字，请确保图片清晰")
 
-    # Step 2: DeepSeek parses OCR text into structured fields
-    ds = AsyncOpenAI(
-        base_url=os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
-        api_key=os.environ["DEEPSEEK_API_KEY"],
-    )
-    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
-
-    prompt = f"""以下是从题目图片中 OCR 识别出的文字：
+    parsed = await _chat_json(
+        f"""以下是从题目图片中 OCR 识别出的文字：
 
 {raw_text}
 
 请从中提取：
 1. 题目内容（statement）：完整的题目描述，去掉题号、页码等无关内容
-2. 参考答案（reference_answer）：如果图片中有答案则提取，没有则填"未提供"
+2. 参考答案（reference_answer）：如果图片中有答案则提取，没有则填\"未提供\"
 
 以 JSON 格式返回，只返回 JSON，不要其他内容：
 {{"statement": "...", "reference_answer": "..."}}"""
-
-    completion = await ds.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=500,
-        temperature=0,
     )
-    content = completion.choices[0].message.content.strip()
-    if content.startswith("```"):
-        content = content.split("```")[1]
-        if content.startswith("json"):
-            content = content[4:]
-    result = json.loads(content.strip())
+    statement = str(parsed.get("statement", "")).strip()
+    reference_answer = str(parsed.get("reference_answer", "未提供")).strip()
+    needs_confirmation = len(statement) < 8
+    answer_source = "extracted"
+
+    if reference_answer in {"", "未提供"}:
+        solved = await solve_problem(statement, subject, grade)
+        reference_answer = solved["reference_answer"]
+        needs_confirmation = needs_confirmation or bool(solved.get("needs_confirmation")) or not reference_answer
+        answer_source = "solved"
+
     return {
-        "statement": result.get("statement", "").strip(),
-        "reference_answer": result.get("reference_answer", "未提供").strip(),
+        "statement": statement,
+        "reference_answer": reference_answer,
         "raw_ocr": raw_text,
+        "needs_confirmation": needs_confirmation,
+        "answer_source": answer_source,
     }
