@@ -7,12 +7,19 @@ from typing import Any
 
 import yaml
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.core.asr import transcribe
 from app.core.ocr import image_to_problem, solve_problem
 from app.core.mistake_book import (
-    add_mistake, list_mistakes, mark_reviewed, delete_mistake, due_count
+    add_mistake, list_mistakes, mark_reviewed, delete_mistake, due_count, get_mistake
+)
+from app.core.photo_intake import (
+    build_finalized_photo_payload,
+    create_photo_draft,
+    discard_photo_draft,
+    move_draft_image_to_mistake_store,
 )
 from app.core.llm_router import LLMRouter
 from app.core.socratic_tutor import SocraticTutor
@@ -229,10 +236,97 @@ class MistakeOut(BaseModel):
     next_review: str
     review_count: int
     note: str
+    image_path: str = ""
+    category: str = ""
 
 
 class DueCountOut(BaseModel):
     due: int
+
+
+class PhotoDraftOut(BaseModel):
+    draft_id: str
+    statement: str
+    raw_ocr: str
+    needs_confirmation: bool
+    category: str
+
+
+class PhotoDraftActionIn(BaseModel):
+    statement: str = ""
+
+
+@router.post("/api/photo-drafts", response_model=PhotoDraftOut)
+async def create_photo_draft_route(
+    subject: Subject,
+    grade: Grade,
+    file: UploadFile = File(...),
+) -> Any:
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Empty image file")
+    try:
+        draft = await create_photo_draft(image_bytes, file.filename or "photo.jpg", subject, grade)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Photo draft failed: {e}")
+    return PhotoDraftOut(
+        draft_id=draft.id,
+        statement=draft.statement,
+        raw_ocr=draft.raw_ocr,
+        needs_confirmation=draft.needs_confirmation,
+        category=draft.category,
+    )
+
+
+@router.post("/api/photo-drafts/{draft_id}/start-session", response_model=StartResponse)
+async def start_session_from_photo_draft(draft_id: str, req: PhotoDraftActionIn) -> Any:
+    payload = await build_finalized_photo_payload(draft_id, req.statement)
+    if payload["needs_confirmation"] or not payload["answer"]:
+        raise HTTPException(status_code=422, detail="题目识别或求解结果还不够确定，请先确认题目内容")
+    return await start_session(
+        StartRequest(
+            subject=str(payload["subject"]),
+            grade=str(payload["grade"]),
+            statement=str(payload["statement"]),
+            reference_answer=str(payload["answer"]),
+            knowledge_points=[],
+        )
+    )
+
+
+@router.post("/api/photo-drafts/{draft_id}/save-mistake", response_model=MistakeOut)
+async def save_photo_draft_as_mistake(draft_id: str, req: PhotoDraftActionIn) -> Any:
+    payload = await build_finalized_photo_payload(draft_id, req.statement)
+    if payload["needs_confirmation"] or not payload["answer"]:
+        raise HTTPException(status_code=422, detail="题目识别或求解结果还不够确定，请先确认题目内容")
+    image_path = move_draft_image_to_mistake_store(draft_id)
+    mid = add_mistake(
+        subject=str(payload["subject"]),
+        grade=str(payload["grade"]),
+        statement=str(payload["statement"]),
+        answer=str(payload["answer"]),
+        source="photo",
+        image_path=image_path,
+        category=str(payload["category"]),
+        ocr_text=str(payload["raw_ocr"]),
+    )
+    discard_photo_draft(draft_id)
+    return get_mistake(mid)
+
+
+@router.get("/api/mistakes/{mistake_id}/image")
+async def get_mistake_image(mistake_id: int) -> Any:
+    row = get_mistake(mistake_id)
+    if row is None or not row.get("image_path"):
+        raise HTTPException(status_code=404, detail="Image not found")
+    path = Path(row["image_path"])
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parents[2] / row["image_path"]
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(path)
 
 
 @router.get("/api/mistakes", response_model=list[MistakeOut])
@@ -274,23 +368,27 @@ async def mistake_from_photo(
     grade: str,
     file: UploadFile = File(...),
 ) -> Any:
-    """OCR a photo and add it directly to mistake book."""
     image_bytes = await file.read()
-    try:
-        result = await image_to_problem(image_bytes, subject=subject, grade=grade)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
-    if result.get("needs_confirmation") or not result.get("reference_answer"):
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Empty image file")
+    draft = await create_photo_draft(image_bytes, file.filename or "photo.jpg", subject, grade)
+    payload = await build_finalized_photo_payload(draft.id, draft.statement)
+    if payload["needs_confirmation"] or not payload["answer"]:
+        discard_photo_draft(draft.id)
         raise HTTPException(status_code=422, detail="题目识别或求解结果还不够确定，请先确认题目内容")
+    image_path = move_draft_image_to_mistake_store(draft.id)
     mid = add_mistake(
-        subject=subject,
-        grade=grade,
-        statement=result["statement"],
-        answer=result["reference_answer"],
+        subject=str(payload["subject"]),
+        grade=str(payload["grade"]),
+        statement=str(payload["statement"]),
+        answer=str(payload["answer"]),
         source="photo",
+        image_path=image_path,
+        category=str(payload["category"]),
+        ocr_text=str(payload["raw_ocr"]),
     )
-    rows = list_mistakes()
-    return next(r for r in rows if r["id"] == mid)
+    discard_photo_draft(draft.id)
+    return get_mistake(mid)
 
 
 @router.put("/api/mistakes/{mistake_id}/reviewed", response_model=MistakeOut)
@@ -303,5 +401,14 @@ async def reviewed(mistake_id: int) -> Any:
 
 @router.delete("/api/mistakes/{mistake_id}")
 async def remove_mistake(mistake_id: int) -> Any:
-    delete_mistake(mistake_id)
+    deleted = delete_mistake(mistake_id)
+    if deleted is None:
+        return {"message": "已删除"}
+    image_path = deleted.get("image_path", "")
+    if image_path:
+        path = Path(image_path)
+        if not path.is_absolute():
+            path = Path(__file__).resolve().parents[2] / image_path
+        if path.exists():
+            path.unlink()
     return {"message": "已删除"}

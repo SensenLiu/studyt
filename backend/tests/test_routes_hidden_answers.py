@@ -125,15 +125,32 @@ def test_start_session_rejects_when_internal_solver_needs_confirmation(
 def test_mistake_from_photo_uses_subject_query_param(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ):
+    captured_create = {}
     captured_add = {}
+    discarded = []
 
-    async def fake_image_to_problem(_: bytes, *, subject: str = "math", grade: str = "junior_1") -> dict[str, object]:
+    async def fake_create_photo_draft(
+        _: bytes, filename: str, subject: str, grade: str
+    ):
+        captured_create.update(filename=filename, subject=subject, grade=grade)
+        return SimpleNamespace(
+            id="draft-compat",
+            statement="质量为 2kg 的物体受到 10N 拉力，求加速度。",
+            raw_ocr="质量为 2kg 的物体受到 10N 拉力，求加速度。",
+            needs_confirmation=False,
+            category="牛顿第二定律",
+        )
+
+    async def fake_build_finalized_photo_payload(draft_id: str, statement: str):
+        assert draft_id == "draft-compat"
         return {
+            "subject": "physics",
+            "grade": "junior_2",
             "statement": "质量为 2kg 的物体受到 10N 拉力，求加速度。",
-            "reference_answer": "5m/s²",
-            "raw_ocr": "质量为 2kg 的物体受到 10N 拉力，求加速度。",
+            "answer": "5m/s²",
+            "category": "牛顿第二定律",
             "needs_confirmation": False,
-            "answer_source": "solved",
+            "raw_ocr": "质量为 2kg 的物体受到 10N 拉力，求加速度。",
         }
 
     def fake_add_mistake(
@@ -143,6 +160,9 @@ def test_mistake_from_photo_uses_subject_query_param(
         answer: str,
         source: str = "session",
         note: str = "",
+        image_path: str = "",
+        category: str = "",
+        ocr_text: str = "",
     ) -> int:
         captured_add.update(
             subject=subject,
@@ -151,28 +171,34 @@ def test_mistake_from_photo_uses_subject_query_param(
             answer=answer,
             source=source,
             note=note,
+            image_path=image_path,
+            category=category,
+            ocr_text=ocr_text,
         )
         return 99
 
-    def fake_list_mistakes(due_only: bool = False):
-        return [
-            {
-                "id": 99,
-                "subject": captured_add["subject"],
-                "grade": captured_add["grade"],
-                "statement": captured_add["statement"],
-                "answer": captured_add["answer"],
-                "source": captured_add["source"],
-                "added_date": "2026-05-15",
-                "next_review": "2026-05-16",
-                "review_count": 0,
-                "note": captured_add["note"],
-            }
-        ]
+    def fake_get_mistake(mistake_id: int):
+        return {
+            "id": mistake_id,
+            "subject": captured_add["subject"],
+            "grade": captured_add["grade"],
+            "statement": captured_add["statement"],
+            "answer": captured_add["answer"],
+            "source": captured_add["source"],
+            "added_date": "2026-05-15",
+            "next_review": "2026-05-16",
+            "review_count": 0,
+            "note": captured_add["note"],
+            "image_path": captured_add["image_path"],
+            "category": captured_add["category"],
+        }
 
-    monkeypatch.setattr(routes, "image_to_problem", fake_image_to_problem)
+    monkeypatch.setattr(routes, "create_photo_draft", fake_create_photo_draft)
+    monkeypatch.setattr(routes, "build_finalized_photo_payload", fake_build_finalized_photo_payload)
+    monkeypatch.setattr(routes, "move_draft_image_to_mistake_store", lambda draft_id: "data/mistake_images/2026/05/p1.jpg")
+    monkeypatch.setattr(routes, "discard_photo_draft", lambda draft_id: discarded.append(draft_id))
     monkeypatch.setattr(routes, "add_mistake", fake_add_mistake)
-    monkeypatch.setattr(routes, "list_mistakes", fake_list_mistakes)
+    monkeypatch.setattr(routes, "get_mistake", fake_get_mistake)
 
     response = client.post(
         "/api/mistakes/from-photo?subject=physics&grade=junior_2",
@@ -180,5 +206,9 @@ def test_mistake_from_photo_uses_subject_query_param(
     )
 
     assert response.status_code == 200
+    assert captured_create["subject"] == "physics"
+    assert captured_create["grade"] == "junior_2"
     assert captured_add["subject"] == "physics"
     assert captured_add["answer"] == "5m/s²"
+    assert captured_add["category"] == "牛顿第二定律"
+    assert discarded == ["draft-compat"]

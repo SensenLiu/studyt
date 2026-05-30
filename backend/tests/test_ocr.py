@@ -80,3 +80,47 @@ async def test_image_to_problem_marks_confirmation_when_solver_is_uncertain(
     assert result["reference_answer"] == ""
     assert result.get("needs_confirmation") is True
     assert result.get("answer_source") == "solved"
+
+
+@pytest.mark.asyncio
+async def test_image_to_problem_uses_extracted_answer_when_ocr_provides_one(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """When OCR parse already contains a reference_answer, answer_source must be
+    'extracted' and solve_problem must NOT be called (only one LLM call total)."""
+    monkeypatch.setattr(
+        ocr,
+        "_ocr_client",
+        lambda: _FakeOcrClient("如图，角 ABC = 30°，求角 BCA 的补角。答：150°"),
+    )
+    # Only one response queued — if solve_problem were called a second pop would fail.
+    fake_client = _FakeAsyncOpenAI(
+        [
+            '{"statement": "角 ABC = 30°，求角 BCA 的补角。", "reference_answer": "150°"}',
+        ]
+    )
+    monkeypatch.setattr(ocr, "_deepseek_client", lambda: fake_client)
+
+    result = await ocr.image_to_problem(b"fake-image")
+
+    assert result["statement"] == "角 ABC = 30°，求角 BCA 的补角。"
+    assert result["reference_answer"] == "150°"
+    assert result.get("answer_source") == "extracted"
+    assert result.get("needs_confirmation") is False
+
+
+@pytest.mark.asyncio
+async def test_categorize_problem_returns_single_category(monkeypatch):
+    fake_client = _FakeAsyncOpenAI([
+        '{"category": "牛顿第二定律"}'
+    ])
+    monkeypatch.setattr(ocr, "_deepseek_client", lambda: fake_client)
+
+    category = await ocr.categorize_problem(
+        statement="质量为 2kg 的物体受到 10N 拉力，求加速度。",
+        subject="physics",
+        grade="junior_2",
+        raw_ocr="质量为 2kg 的物体受到 10N 拉力，求加速度。",
+    )
+
+    assert category == "牛顿第二定律"

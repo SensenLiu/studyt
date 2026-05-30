@@ -1,5 +1,6 @@
 """Aliyun OCR + DeepSeek to extract problem statement and answer from an image."""
 from __future__ import annotations
+import asyncio
 import io
 import json
 import os
@@ -61,6 +62,25 @@ async def _chat_json(prompt: str, *, max_tokens: int = 500) -> dict[str, Any]:
     return json.loads(content.strip())
 
 
+async def categorize_problem(
+    statement: str,
+    subject: str,
+    grade: str,
+    raw_ocr: str = "",
+) -> str:
+    prompt = f"""你是一名中国 K-12 {subject} 老师。
+
+题目：{statement}
+年级：{grade}
+OCR 原文：{raw_ocr}
+
+请输出一个最稳定、最简洁的知识点分类，只返回 JSON：
+{{"category": "分类名"}}
+"""
+    result = await _chat_json(prompt)
+    return str(result.get("category", "未分类")).strip() or "未分类"
+
+
 async def solve_problem(statement: str, subject: str, grade: str) -> dict[str, Any]:
     prompt = f"""你是一名中国 K-12 {subject} 老师。下面是一道 {grade} 题目：
 
@@ -91,13 +111,11 @@ async def image_to_problem(
     3. If no answer is present, ask DeepSeek to solve it internally
     Returns internal data including answer and confirmation state.
     """
-    import asyncio
-
     client = _ocr_client()
     req = ocr_models.RecognizeGeneralRequest()
     req.body = io.BytesIO(image_bytes)
     runtime = util_models.RuntimeOptions()
-    resp = await asyncio.get_event_loop().run_in_executor(
+    resp = await asyncio.get_running_loop().run_in_executor(
         None, lambda: client.recognize_general_with_options(req, runtime)
     )
     raw_text = _extract_text(resp.body)

@@ -124,7 +124,7 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
         </button>
         <label style="flex:1;padding:9px;background:#f3f4f6;border:1px solid #ccc;
                       border-radius:8px;font-size:14px;cursor:pointer;text-align:center">
-          📷 拍题识别
+          📷 拍题
           <input type="file" id="ocr-input" accept="image/*" capture="environment"
             style="display:none" onchange="handleOcrImage(this)">
         </label>
@@ -132,6 +132,13 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
       <div id="ocr-status" style="font-size:12px;margin-top:6px;display:none"></div>
       <label style="margin-top:10px">题目</label>
       <textarea id="statement" placeholder="随机出题或拍照后自动填入，也可手动输入" rows="3"></textarea>
+      <div id="photo-actions" style="display:none;margin-top:10px;border:1px solid #e5e7eb;border-radius:10px;padding:10px;">
+        <div id="photo-category" style="font-size:12px;color:#6b7280;margin-bottom:6px"></div>
+        <div style="display:flex;gap:8px;">
+          <button id="photo-practice-btn" style="flex:1;padding:10px;border:none;border-radius:8px;background:#4f46e5;color:#fff;cursor:pointer" onclick="startPhotoPractice()">立即做题</button>
+          <button id="photo-save-btn" style="flex:1;padding:10px;border:1px solid #4f46e5;border-radius:8px;background:#fff;color:#4f46e5;cursor:pointer" onclick="savePhotoMistake()">保存到错题集</button>
+        </div>
+      </div>
       <button id="start-btn" onclick="startSession()" style="margin-top:14px">开始答题</button>
     </div>
     <!-- 对话区 -->
@@ -158,11 +165,6 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
   <div id="page-mistakes" class="page" style="flex-direction:column;overflow:hidden">
     <div id="mistakes-header">
       <h2>📒 错题集</h2>
-      <label id="add-mistake-btn">
-        📷 拍题加入
-        <input type="file" id="mistake-photo-input" accept="image/*" capture="environment"
-          style="display:none" onchange="addMistakeFromPhoto(this)">
-      </label>
     </div>
     <div id="mistakes-filter">
       <button class="active" onclick="loadMistakes(false, this)">全部</button>
@@ -185,6 +187,14 @@ body{font-family:-apple-system,sans-serif;background:#f0f2f5;display:flex;
 let sessionId = null;
 let mediaRecorder = null;
 let audioChunks = [];
+let currentPhotoDraftId = null;
+
+function resetPhotoDraftUI(){
+  currentPhotoDraftId = null;
+  document.getElementById('photo-actions').style.display = 'none';
+  document.getElementById('photo-category').textContent = '';
+  document.getElementById('start-btn').style.display = '';
+}
 
 function autoResize(el){
   el.style.height='auto';
@@ -213,6 +223,7 @@ function setStatus(msg){
 }
 
 async function pickRandom(){
+  resetPhotoDraftUI();
   const subject = document.getElementById('subject').value;
   const grade = document.getElementById('grade').value;
   const btn = document.getElementById('random-btn');
@@ -245,31 +256,74 @@ async function pickRandom(){
 async function handleOcrImage(input){
   const file = input.files[0];
   if(!file) return;
+  const subject = document.getElementById('subject').value;
+  const grade = document.getElementById('grade').value;
   const ocrStatus = document.getElementById('ocr-status');
-  ocrStatus.style.display='block';
-  ocrStatus.textContent='📷 识别中，请稍候…';
-  document.getElementById('start-btn').disabled=true;
+  document.getElementById('start-btn').disabled = true;
+  ocrStatus.style.display = 'block';
+  ocrStatus.textContent = '📷 识别中，请稍候…';
   const fd = new FormData();
   fd.append('file', file);
   try{
-    const subject = document.getElementById('subject').value;
-    const grade = document.getElementById('grade').value;
-    const res = await fetch(`/api/ocr?subject=${subject}&grade=${grade}`, {method:'POST', body:fd});
+    const res = await fetch(`/api/photo-drafts?subject=${subject}&grade=${grade}`, {method:'POST', body:fd});
     if(!res.ok) throw new Error(await res.text());
     const data = await res.json();
+    currentPhotoDraftId = data.draft_id;
     document.getElementById('statement').value = data.statement;
     autoResize(document.getElementById('statement'));
+    document.getElementById('photo-actions').style.display = 'block';
+    document.getElementById('photo-category').textContent = `系统分类：${data.category}`;
+    document.getElementById('start-btn').style.display = 'none';
     ocrStatus.style.color = data.needs_confirmation ? '#d97706' : '#16a34a';
     ocrStatus.textContent = data.needs_confirmation
-      ? '⚠️ 识别结果还需确认，请先检查或修改题目再开始答题'
-      : '✅ 识别完成，请确认题目后开始答题';
+      ? '⚠️ 识别结果还需确认，请先检查题目后再选择动作'
+      : '✅ 识别完成，请选择立即做题或保存到错题集';
   }catch(e){
-    ocrStatus.textContent = '❌ 识别失败：' + e.message;
     ocrStatus.style.color = '#dc2626';
+    ocrStatus.textContent = '❌ 识别失败：' + e.message;
+    resetPhotoDraftUI();
   }finally{
-    document.getElementById('start-btn').disabled=false;
-    input.value='';
+    document.getElementById('start-btn').disabled = false;
+    input.value = '';
   }
+}
+
+async function startPhotoPractice(){
+  if(!currentPhotoDraftId) return;
+  const statement = document.getElementById('statement').value.trim();
+  if(!statement){ alert('请先确认题目'); return; }
+  setStatus('AI 老师正在准备第一个问题…');
+  const res = await fetch(`/api/photo-drafts/${currentPhotoDraftId}/start-session`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({statement})
+  });
+  if(!res.ok) throw new Error(await res.text());
+  const data = await res.json();
+  sessionId = data.session_id;
+  document.getElementById('setup').style.display='none';
+  document.getElementById('chat').style.display='flex';
+  document.getElementById('input-bar').style.display='flex';
+  document.getElementById('add-to-mistakes-bar').style.display='block';
+  setStatus('');
+  addBubble(data.turn.display_text,'tutor',data.turn.tool);
+}
+
+async function savePhotoMistake(){
+  if(!currentPhotoDraftId) return;
+  const statement = document.getElementById('statement').value.trim();
+  if(!statement){ alert('请先确认题目'); return; }
+  const res = await fetch(`/api/photo-drafts/${currentPhotoDraftId}/save-mistake`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({statement})
+  });
+  if(!res.ok) throw new Error(await res.text());
+  resetPhotoDraftUI();
+  setStatus('✅ 已保存到错题集');
+  showPage('mistakes', document.getElementById('nav-mistakes'));
+  await loadMistakes(false, document.querySelector('#mistakes-filter button'));
+  updateDueBadge();
 }
 
 async function startSession(){
@@ -379,10 +433,11 @@ async function loadMistakes(dueOnly, btn){
   list.innerHTML = items.map(m=>`
     <div class="mistake-card" id="mc-${m.id}">
       <div class="stmt">${m.statement}</div>
-      <div class="meta">${subjMap[m.subject]||m.subject} · ${gradeMap[m.grade]||m.grade} · 复习${m.review_count}次 · 下次 ${m.next_review}</div>
+      <div class="meta">${subjMap[m.subject]||m.subject} · ${gradeMap[m.grade]||m.grade} · 系统分类 ${m.category||'未分类'} · 复习${m.review_count}次 · 下次 ${m.next_review}</div>
       <div class="actions">
         <button class="btn-review" onclick="markReviewed(${m.id})">✅ 已复习</button>
         <button class="btn-practice" onclick="practiceFromMistake(${m.id})">▶ 重新练习</button>
+        ${m.image_path ? `<button class="btn-practice" onclick="window.open('/api/mistakes/${m.id}/image','_blank')">🖼 查看原图</button>` : ''}
         <button class="btn-del" onclick="deleteMistake(${m.id})">🗑</button>
       </div>
     </div>`).join('');
